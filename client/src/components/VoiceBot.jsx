@@ -9,6 +9,8 @@ const VoiceBot = () => {
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
 
+  const url = process.env.REACT_APP_BASE_URL || "http://localhost:5000";
+
   const chatEndRef = useRef(null);
 
   // 🔽 Auto-scroll when new messages appear
@@ -64,7 +66,7 @@ const VoiceBot = () => {
       setLoading(true);
 
       try {
-        const res = await axios.post("http://localhost:5000/api/chat", {
+        const res = await axios.post(`${url}/api/chat`, {
           message: transcript,
         });
 
