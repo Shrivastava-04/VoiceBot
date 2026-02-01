@@ -18,10 +18,9 @@ const VoiceBot = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // 🔊 Text-to-Speech
+  // 🔊 Text-to-Speech (Prefers Indian Male Voice)
   const speak = (text) => {
     const synth = window.speechSynthesis;
-
     synth.cancel(); // stop old speech if any
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -31,12 +30,62 @@ const VoiceBot = () => {
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
 
-    synth.speak(utterance);
+    const setVoiceAndSpeak = () => {
+      const voices = synth.getVoices();
+
+      if (!voices.length) {
+        synth.speak(utterance);
+        return;
+      }
+
+      // 1️⃣ Try Indian English MALE voice
+      let selectedVoice = voices.find(
+        (v) =>
+          v.lang === "en-IN" &&
+          (v.name.toLowerCase().includes("male") ||
+            v.name.toLowerCase().includes("ravi") ||
+            v.name.toLowerCase().includes("aditya")),
+      );
+
+      // 2️⃣ Fallback: Any Indian English voice
+      if (!selectedVoice) {
+        selectedVoice = voices.find((v) => v.lang === "en-IN");
+      }
+
+      // 3️⃣ Fallback: English male voice
+      if (!selectedVoice) {
+        selectedVoice = voices.find(
+          (v) =>
+            v.lang.startsWith("en") &&
+            (v.name.toLowerCase().includes("male") ||
+              v.name.toLowerCase().includes("david") ||
+              v.name.toLowerCase().includes("alex") ||
+              v.name.toLowerCase().includes("mark")),
+        );
+      }
+
+      // 4️⃣ Final fallback: Any English voice
+      if (!selectedVoice) {
+        selectedVoice = voices.find((v) => v.lang.startsWith("en"));
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
+      synth.speak(utterance);
+    };
+
+    // Some browsers load voices asynchronously
+    if (synth.getVoices().length === 0) {
+      synth.onvoiceschanged = setVoiceAndSpeak;
+    } else {
+      setVoiceAndSpeak();
+    }
   };
 
   // 🎤 Speech Recognition
   const startListening = () => {
-    // Stop bot voice if already speaking
     window.speechSynthesis.cancel();
 
     const SpeechRecognition =
@@ -54,9 +103,7 @@ const VoiceBot = () => {
     recognition.maxAlternatives = 1;
     recognition.continuous = false;
 
-    recognition.onstart = () => {
-      setListening(true);
-    };
+    recognition.onstart = () => setListening(true);
 
     recognition.onresult = async (event) => {
       const transcript = event.results[0][0].transcript;
@@ -73,7 +120,6 @@ const VoiceBot = () => {
         const reply = res.data.reply;
 
         setMessages((prev) => [...prev, { sender: "bot", text: reply }]);
-
         speak(reply);
       } catch (err) {
         console.error(err);
@@ -86,14 +132,8 @@ const VoiceBot = () => {
       setLoading(false);
     };
 
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      setListening(false);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
 
     recognition.start();
   };
